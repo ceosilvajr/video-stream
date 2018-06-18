@@ -1,3 +1,8 @@
 <resources>
   <string name="app_name">Orai Video Streaming</string>
+  <string name="record">record</string>
+  <string name="intro_message">Intro message</string>
+  <string name="permission_request">Permission request</string>
+  <string name="camera_error">Camera error</string>
+  <string name="stop">stop</string>
 </resources>
