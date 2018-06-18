@@ -1,4 +1,5 @@
 <resources>
+  <!--TODO (ceosilvajr) change this url with respect to python server ip address.-->
   <string name="websocket_url">ws://192.168.112.44:8000/stream</string>
   <string name="app_name">Orai Video Streaming</string>
   <string name="record">record</string>
@@ -6,4 +7,10 @@
   <string name="permission_request">Permission request</string>
   <string name="camera_error">Camera error</string>
   <string name="stop">stop</string>
+  <string name="cannot_access_the_camera">Cannot access the camera.</string>
+  <string name="failed_to_open_camera_message">Interrupted while trying to lock camera opening.</string>
+  <string name="failed_to_close_camera">Interrupted while trying to lock camera closing.</string>
+  <string name="failed">Failed</string>
+  <string name="time_out_waitng_camera">Time out waiting to lock camera opening.</string>
+  <string name="error_on_preview_sizes">Cannot get available preview/video sizes</string>
 </resources>

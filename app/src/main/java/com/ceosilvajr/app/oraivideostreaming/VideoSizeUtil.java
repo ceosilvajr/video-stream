@@ -4,6 +4,7 @@ import android.util.Log;
 import android.util.Size;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -37,10 +38,21 @@ public final class VideoSizeUtil {
       }
     }
     if (bigEnough.size() > 0) {
-      return Collections.min(bigEnough, new CameraFragment.CompareSizesByArea());
+      return Collections.min(bigEnough, new CompareSizesByArea());
     } else {
       Log.e(TAG, "Couldn't find any suitable preview size");
       return choices[0];
+    }
+  }
+
+  /**
+   * Compares two {@code Size}s based on their areas.
+   */
+  static class CompareSizesByArea implements Comparator<Size> {
+
+    @Override public int compare(Size lhs, Size rhs) {
+      // We cast here to ensure the multiplications won't overflow
+      return Long.signum((long) lhs.getWidth() * lhs.getHeight() - (long) rhs.getWidth() * rhs.getHeight());
     }
   }
 }
