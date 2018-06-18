@@ -388,6 +388,7 @@ public class CameraFragment extends Fragment implements TextureView.SurfaceTextu
     final Request request = new Request.Builder().url(getString(R.string.websocket_url)).build();
     final WebSocket ws = client.newWebSocket(request, new AppSocketListener());
     final ParcelFileDescriptor pfd = ParcelFileDescriptor.fromSocket(client.socketFactory().createSocket());
+    // TODO (ceosilvajr) saving data using ParcelFileDescriptor from socket.
     return pfd.getFileDescriptor();
   }
 
@@ -425,7 +426,6 @@ public class CameraFragment extends Fragment implements TextureView.SurfaceTextu
                   // UI
                   mButtonVideo.setText(R.string.stop);
                   mIsRecordingVideo = true;
-
                   // Start recording
                   mMediaRecorder.start();
                 }
@@ -435,7 +435,7 @@ public class CameraFragment extends Fragment implements TextureView.SurfaceTextu
             @Override public void onConfigureFailed(@NonNull CameraCaptureSession cameraCaptureSession) {
               Activity activity = getActivity();
               if (null != activity) {
-                Toast.makeText(activity, "Failed", Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, R.string.failed, Toast.LENGTH_SHORT).show();
               }
             }
           }, mBackgroundHandler);
