@@ -1,12 +1,8 @@
 package com.ceosilvajr.app.oraivideostreaming;
 
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.app.Dialog;
-import android.app.DialogFragment;
 import android.app.Fragment;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Matrix;
@@ -27,7 +23,6 @@ import android.os.HandlerThread;
 import android.os.ParcelFileDescriptor;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
-import android.util.Log;
 import android.util.Size;
 import android.util.SparseIntArray;
 import android.view.LayoutInflater;
@@ -51,10 +46,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
-import okhttp3.Response;
 import okhttp3.WebSocket;
-import okhttp3.WebSocketListener;
-import okio.ByteString;
 
 /**
  * Created date 18/06/2018
@@ -68,8 +60,6 @@ public class CameraFragment extends Fragment implements TextureView.SurfaceTextu
   private static final SparseIntArray DEFAULT_ORIENTATIONS = new SparseIntArray();
   private static final SparseIntArray INVERSE_ORIENTATIONS = new SparseIntArray();
 
-  private static final String TAG = "Camera2VideoFragment";
-  private static final int REQUEST_VIDEO_PERMISSIONS = 1;
   private static final String FRAGMENT_DIALOG = "dialog";
 
   static {
@@ -150,35 +140,6 @@ public class CameraFragment extends Fragment implements TextureView.SurfaceTextu
     return new CameraFragment();
   }
 
-  private static Size chooseVideoSize(Size[] choices) {
-    for (Size size : choices) {
-      if (size.getWidth() == size.getHeight() * 4 / 3 && size.getWidth() <= 1080) {
-        return size;
-      }
-    }
-    Log.e(TAG, "Couldn't find any suitable video size");
-    return choices[choices.length - 1];
-  }
-
-  private static Size chooseOptimalSize(Size[] choices, int width, int height, Size aspectRatio) {
-    List<Size> bigEnough = new ArrayList<>();
-    int w = aspectRatio.getWidth();
-    int h = aspectRatio.getHeight();
-    for (Size option : choices) {
-      if (option.getHeight() == option.getWidth() * h / w
-          && option.getWidth() >= width
-          && option.getHeight() >= height) {
-        bigEnough.add(option);
-      }
-    }
-    if (bigEnough.size() > 0) {
-      return Collections.min(bigEnough, new CompareSizesByArea());
-    } else {
-      Log.e(TAG, "Couldn't find any suitable preview size");
-      return choices[0];
-    }
-  }
-
   @Override public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
     View view = inflater.inflate(R.layout.fragment_camera_video, container, false);
     this.unbinder = ButterKnife.bind(this, view);
@@ -242,15 +203,15 @@ public class CameraFragment extends Fragment implements TextureView.SurfaceTextu
 
   private void requestVideoPermissions() {
     if (shouldShowRequestPermissionRationale(AppPermission.VIDEO_PERMISSIONS)) {
-      new ConfirmationDialog().show(getChildFragmentManager(), FRAGMENT_DIALOG);
+      new ConfirmPermissionDialog().show(getChildFragmentManager(), FRAGMENT_DIALOG);
     } else {
-      requestPermissions(AppPermission.VIDEO_PERMISSIONS, REQUEST_VIDEO_PERMISSIONS);
+      requestPermissions(AppPermission.VIDEO_PERMISSIONS, AppPermission.REQUEST_VIDEO_PERMISSIONS);
     }
   }
 
   @Override
   public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-    if (requestCode == REQUEST_VIDEO_PERMISSIONS) {
+    if (requestCode == AppPermission.REQUEST_VIDEO_PERMISSIONS) {
       if (grantResults.length == AppPermission.VIDEO_PERMISSIONS.length) {
         for (int result : grantResults) {
           if (result != PackageManager.PERMISSION_GRANTED) {
@@ -303,8 +264,9 @@ public class CameraFragment extends Fragment implements TextureView.SurfaceTextu
       if (map == null) {
         throw new RuntimeException("Cannot get available preview/video sizes");
       }
-      mVideoSize = chooseVideoSize(map.getOutputSizes(MediaRecorder.class));
-      mPreviewSize = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class), width, height, mVideoSize);
+      mVideoSize = VideoSizeUtil.chooseVideoSize(map.getOutputSizes(MediaRecorder.class));
+      mPreviewSize =
+          VideoSizeUtil.chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class), width, height, mVideoSize);
 
       int orientation = getResources().getConfiguration().orientation;
       if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
@@ -447,8 +409,8 @@ public class CameraFragment extends Fragment implements TextureView.SurfaceTextu
 
   private FileDescriptor getVideoFilePath() throws IOException {
     final OkHttpClient client = new OkHttpClient();
-    final Request request = new Request.Builder().url("ws://192.168.112.44:8000/stream").build();
-    final WebSocket ws = client.newWebSocket(request, new EchoWebSocketListener());
+    final Request request = new Request.Builder().url(getString(R.string.websocket_url)).build();
+    final WebSocket ws = client.newWebSocket(request, new AppSocketListener());
     final ParcelFileDescriptor pfd = ParcelFileDescriptor.fromSocket(client.socketFactory().createSocket());
     return pfd.getFileDescriptor();
   }
@@ -533,75 +495,6 @@ public class CameraFragment extends Fragment implements TextureView.SurfaceTextu
     @Override public int compare(Size lhs, Size rhs) {
       // We cast here to ensure the multiplications won't overflow
       return Long.signum((long) lhs.getWidth() * lhs.getHeight() - (long) rhs.getWidth() * rhs.getHeight());
-    }
-  }
-
-  public static class ErrorDialog extends DialogFragment {
-
-    private static final String ARG_MESSAGE = "message";
-
-    public static ErrorDialog newInstance(String message) {
-      ErrorDialog dialog = new ErrorDialog();
-      Bundle args = new Bundle();
-      args.putString(ARG_MESSAGE, message);
-      dialog.setArguments(args);
-      return dialog;
-    }
-
-    @Override public Dialog onCreateDialog(Bundle savedInstanceState) {
-      final Activity activity = getActivity();
-      return new AlertDialog.Builder(activity).setMessage(getArguments().getString(ARG_MESSAGE))
-          .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-            @Override public void onClick(DialogInterface dialogInterface, int i) {
-              activity.finish();
-            }
-          })
-          .create();
-    }
-  }
-
-  public static class ConfirmationDialog extends DialogFragment {
-
-    @Override public Dialog onCreateDialog(Bundle savedInstanceState) {
-      final Fragment parent = getParentFragment();
-      return new AlertDialog.Builder(getActivity()).setMessage(R.string.permission_request)
-          .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
-            @Override public void onClick(DialogInterface dialog, int which) {
-              requestPermissions(AppPermission.VIDEO_PERMISSIONS, REQUEST_VIDEO_PERMISSIONS);
-            }
-          })
-          .setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
-            @Override public void onClick(DialogInterface dialog, int which) {
-              parent.getActivity().finish();
-            }
-          })
-          .create();
-    }
-  }
-
-  private final class EchoWebSocketListener extends WebSocketListener {
-
-    private static final int NORMAL_CLOSURE_STATUS = 1000;
-
-    @Override public void onOpen(WebSocket webSocket, Response response) {
-      webSocket.send("Hello socket.");
-    }
-
-    @Override public void onMessage(WebSocket webSocket, String text) {
-      Log.d(TAG, "Receiving : " + text);
-    }
-
-    @Override public void onMessage(WebSocket webSocket, ByteString bytes) {
-      Log.d(TAG, "Receiving bytes : " + bytes.hex());
-    }
-
-    @Override public void onClosing(WebSocket webSocket, int code, String reason) {
-      webSocket.close(NORMAL_CLOSURE_STATUS, null);
-      Log.d(TAG, "Closing : " + code + " / " + reason);
-    }
-
-    @Override public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-      Log.d(TAG, "Error : " + t.getMessage());
     }
   }
 }

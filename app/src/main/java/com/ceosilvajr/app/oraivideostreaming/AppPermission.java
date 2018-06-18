@@ -9,6 +9,8 @@ import android.Manifest;
  **/
 public final class AppPermission {
 
+  public static final int REQUEST_VIDEO_PERMISSIONS = 1;
+
   private AppPermission() {
     super();
   }
